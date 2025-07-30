@@ -17,6 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+from .views import render_country_info_from_api
+from .views import render_post_info_from_api
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/country/', 'render_country_info_from_api', name='api_country'),
+    path('api/post/', 'render_post_info_from_api', name='api_post'),
 ]

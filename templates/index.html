@@ -1,0 +1,242 @@
+{% load static %}
+
+<!-- ====== ЗАРЕНДЕРИТЬ НУЖНЫЕ ДАННЫЕ ДЛЯ НАЧАЛЬНОУ МЕТКИ И ОТСЛЕЖИВАНИЯ МЕТОК ====== -->
+
+<!-- <!DOCTYPE html> -->
+<html>
+<head>
+    <title>Интерактивная Карта</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://raw.githubusercontent.com/Aw1ks/Interactive-Travel-Map-FRONT/refs/heads/main/style.css"/>
+
+    <style>
+        #map { 
+            height: 100%; 
+
+        }
+        #search-box {
+            position: absolute;
+            top: 30px;
+            left: 80px;
+            z-index: 401;
+        }
+
+        body {
+            overflow-y: hidden;
+            background:  linear-gradient(125deg,#949daa,#4a6864,#1f3f3a,#132523,#0b181f);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="search-box">
+        <input type="text" id="search-input" placeholder="Поиск страны/города" />
+        <button id="search-button">
+            <img src="images/icons/search-icon.png" alt="" id="search-icon" />
+        </button>
+    </div>
+
+    <div id="post-box">
+        <img src="images/icons/addPost_icon.png" alt="" id="add_post">
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        let countryData = null;
+
+        fetch('country.json')
+            .then(response => {
+                if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                countryData = data;
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки country.json:', error);
+            });
+
+        var map = L.map('map').setView([55.75, 37.61], 11);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var redIcon = L.icon({
+            iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png', 
+            iconSize: [60, 60], 
+            iconAnchor: [16, 32], 
+            popupAnchor: [0, -32] 
+        });
+
+        document.getElementById('search-button').addEventListener('click', function() {
+            var searchTerm = document.getElementById('search-input').value.trim();
+            if (!searchTerm) {
+                alert("Пожалуйста, введите название города или страны.");
+                return;
+            }
+
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTerm)}&limit=1`)
+                .then(response => response.json())
+                .then(results => {
+                    if (results.length > 0) {
+                        const result = results[0];
+                        const lat = parseFloat(result.lat);
+                        const lon = parseFloat(result.lon);
+                        map.setView([lat, lon], 10);
+                        const marker = L.marker([lat, lon], { icon: redIcon })
+                        .addTo(map);
+                        marker.on('click', function() {
+                            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+                                .then(response => response.json())
+                                .then(nominatimData => {
+                                    const country_name = nominatimData.address.country;
+                                    let countryInfo = null;
+                                    if (countryData && Array.isArray(countryData)) {
+                                        for (let country of countryData) {
+                                            if (country.name === country_name) {
+                                                countryInfo = country;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    const content = {
+                                        city: searchTerm,
+                                        images: [], 
+                                        country: country_name,
+                                        country_information: countryInfo,
+                                        postData: post_data
+                                    };
+                                    openCustomPopup(content);
+                                });
+                        });
+                    } else {
+                        alert("Ничего не найдено.");
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при запросе к Nominatim:', error);
+                    alert("Произошла ошибка при поиске.");
+                });
+        });
+
+
+        function loadJSON(file) {
+            return fetch(file)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Ошибка HTTP! статус: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки JSON:', error);
+                    return [];
+                });
+        }
+
+
+        function addGroupedMarkers(data) {
+            for (const key in markerGroups) {
+                const postsAtPoint = markerGroups[key];
+                const firstPost = postsAtPoint[0];
+                const lat = firstPost.coordinate.lat;
+                const lng = firstPost.coordinate.lng;
+
+                const count = postsAtPoint.length;
+
+                const customMarkerIcon = L.divIcon({
+                    html: `
+                        <div class="custom-marker">
+                            <div class="marker-body" style="background-image: url('${firstPost.image[0]}');"></div>
+                            <div class="marker-pointer"></div>
+                            ${count > 1 ? `<div class="post-count-badge">${count}</div>` : ''}
+                        </div>
+                    `,
+                    className: '', 
+                    iconSize: [60, 60],
+                    iconAnchor: [30, 60], 
+                    popupAnchor: [0, -50]
+                });
+
+                const marker = L.marker([lat, lng], { icon: customMarkerIcon }).addTo(map);
+
+                marker.on('click', function(e) {
+                    console.log("Клик по метке с количеством постов: " + count);
+
+                    const item = firstPost;
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Ошибка при ответе.');
+                            }
+                            return response.json();
+                        })
+                        .then(nominatimData => {
+                            const country_name = nominatimData.address.country;
+
+                            let countryInfo = null;
+                            if (countryData && Array.isArray(countryData)) {
+                                for (let country of countryData) {
+                                    if (country.name === country_name) {
+                                        countryInfo = country;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            const content = {
+                                city: item.description,
+                                images: item.images,
+                                country: country_name,
+                                country_information: countryInfo,
+                                postData: data
+                            };
+
+                            openCustomPopup(content);
+                        })
+                        .catch(error => {
+                            console.error("Ошибка при запросе к Nominatim:", error);
+                        });
+                });
+            }
+        }
+
+    const markerGroups = {};
+
+    function groupMarkersByCoordinates(data) {
+        data.forEach(item => {
+            const lat = item.coordinate.lat;
+            const lng = item.coordinate.lng;
+            const key = `${lat},${lng}`;
+            
+            if (!markerGroups[key]) {
+                    markerGroups[key] = [];
+                }
+                markerGroups[key].push(item);
+            });
+        }
+
+        loadJSON('post.json')
+            .then(data => {
+                post_data = data;
+                if (data && data.length > 0) {
+                    groupMarkersByCoordinates(data);
+                    addGroupedMarkers(data);
+                } else {
+                    console.warn("Данные JSON пусты или недействительны.");
+                }
+            });
+    </script>
+    <script src="{% static 'script.js' %}"></script>
+</body>
+</html>
+
+
+
