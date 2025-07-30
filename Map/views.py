@@ -87,7 +87,13 @@ def render_country_info_from_api(request):
             "image": country.image
         }
         country_json.append(country_info)
-    return JsonResponse(country_json, json_dumps_params={'indent': 2, 'ensure_ascii': False})
+    return JsonResponse(
+        country_json, 
+        json_dumps_params={
+            'indent': 2, 
+            'ensure_ascii': False
+        }
+    )
 
 
 def render_post_info_from_api(request):
@@ -115,5 +121,11 @@ def render_post_info_from_api(request):
             }
         }
         post_json.append(post_info)
-    return JsonResponse(post_json, json_dumps_params={'indent': 2, 'ensure_ascii': False})
+    return JsonResponse(
+        post_json, 
+        json_dumps_params={
+            'indent': 2, 
+            'ensure_ascii': False
+        }
+    )
 
