@@ -3,7 +3,7 @@ import logging
 import wikipedia
 import re
 
-from django.urls import JsonResponse
+from django.http import JsonResponse
 
 from .models import Country, Post
 
