@@ -18,6 +18,8 @@ fetch('api/post/')
         console.error('Ошибка загрузки post.json:', error);
     })
 
+// ЗАМЕНИТЬ CONTENT НА API ДАННЫЕ
+
 /* ------ ФУНКЦИЯ ДЛЯ ОТКРЫТИЯ ОКНА С ИНФОЙ СТРАНЫ | ГОРОДА------ */ 
 let activePopup = null;
 
